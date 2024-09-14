@@ -1,0 +1,661 @@
+﻿diff --git a/LoRaEngine/LoraKeysManagerFacade/IoTHubDeviceInfo.cs b/LoRaEngine/LoraKeysManagerFacade/IoTHubDeviceInfo.cs
+index cd9e01fe..b35f7657 100644
+--- a/LoRaEngine/LoraKeysManagerFacade/IoTHubDeviceInfo.cs
++++ b/LoRaEngine/LoraKeysManagerFacade/IoTHubDeviceInfo.cs
+@@ -1,6 +1,6 @@
+ // Copyright (c) Microsoft. All rights reserved.
+ // Licensed under the MIT license. See LICENSE file in the project root for full license information.
+-
++#pragma warning disable CA1507
+ namespace LoraKeysManagerFacade
+ {
+     using LoRaWan;
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/DownlinkMessageBuilder.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/DownlinkMessageBuilder.cs
+index 08356f98..29a92577 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/DownlinkMessageBuilder.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/DownlinkMessageBuilder.cs
+@@ -286,6 +286,7 @@ namespace LoRaWan.NetworkServer
+ 
+             // Class C always use RX2
+             freq = loRaRegion.GetDownstreamRX2Freq(configuration.Rx2Frequency, deviceJoinInfo, logger);
++            //TODO US470 to revisit
+             datr = loRaRegion.GetDownstreamRX2DataRate(configuration.Rx2DataRate, loRaDevice.ReportedRX2DataRate, deviceJoinInfo, logger);
+ 
+             // get max. payload size based on data rate from LoRaRegion
+@@ -383,6 +384,26 @@ namespace LoRaWan.NetworkServer
+                                 }
+                             }
+                             break;
++                        case Cid.WSDBRegistrationRequest:
++                        case Cid.WSDBRegistrationResponse:
++                            logger.LogInformation($"answering to a MHDR MAC command request {requestedMacCommand.Cid}");
++                            if (loRaRequest != null)
++                            {
++                                var rfChainA = (UInt32)473187500;
++                                var rfChainB = (UInt32)479187500;
++                                var dateTime = DateTime.Now;
++                                var epochStart = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
++                                var timeSpan = dateTime.ToUniversalTime() - epochStart;
++                                var expiryEpoch = (UInt32)timeSpan.TotalSeconds;
++                                var wsdbRegistrationResponse = new WSDBRegistrationResponse(rfChainA, rfChainB, expiryEpoch);
++                                logger.LogInformation($"answering to a MHDR MAC command request {loRaRequest.Payload.MHdr}");
++                                if (cids.Add(Cid.WSDBRegistrationResponse))
++                                {
++                                    macCommands.Add(wsdbRegistrationResponse);
++                                    logger.LogInformation($"answering to a MAC command request {wsdbRegistrationResponse}");
++                                }
++                            }
++                            break;
+                         case Cid.DutyCycleCmd:
+                         case Cid.RXParamCmd:
+                         case Cid.DevStatusCmd:
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/IoTHubDeviceInfo.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/IoTHubDeviceInfo.cs
+index 0fc5fc1e..952d2055 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/IoTHubDeviceInfo.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/IoTHubDeviceInfo.cs
+@@ -1,6 +1,6 @@
+ // Copyright (c) Microsoft. All rights reserved.
+ // Licensed under the MIT license. See LICENSE file in the project root for full license information.
+-
++#pragma warning disable CA1507
+ namespace LoRaWan.NetworkServer
+ {
+     using Newtonsoft.Json;
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/Dockerfile b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/Dockerfile
+new file mode 100644
+index 00000000..7681740d
+--- /dev/null
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/Dockerfile
+@@ -0,0 +1,40 @@
++FROM mcr.microsoft.com/dotnet/sdk:6.0-bullseye-slim-amd64 AS build-env
++
++WORKDIR /build
++COPY Directory.Build.props ./
++COPY AssemblyInfo.cs ./
++COPY .editorconfig ./
++COPY global.json ./
++
++WORKDIR /build/LoRaEngine/modules
++COPY ["LoRaEngine/modules/LoRaWan.NetworkServerDiscovery/LoRaWan.NetworkServerDiscovery.csproj", "LoRaWan.NetworkServerDiscovery/"]
++
++WORKDIR /build/LoRaEngine/modules/LoRaWanNetworkSrvModule
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj", "LoRaWanNetworkSrvModule/"]
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/LoRaWan.NetworkServer.csproj", "LoRaWan.NetworkServer/"]
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan/LoRaWan.csproj", "LoRaWan/"]
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/LoRaTools.csproj", "LoraTools/"]
++RUN dotnet restore "LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj"
++
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools LoraTools
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer LoRaWan.NetworkServer
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule LoRaWanNetworkSrvModule
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan LoRaWan
++
++WORKDIR /build/LoRaEngine/modules
++COPY ./LoRaEngine/modules/LoRaWan.NetworkServerDiscovery LoRaWan.NetworkServerDiscovery
++
++WORKDIR /build/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule
++
++RUN dotnet publish "LoRaWanNetworkSrvModule.csproj" -c Release -o out --no-restore
++
++FROM mcr.microsoft.com/dotnet/aspnet:6.0-bullseye-slim-arm32v7
++WORKDIR /app
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/appsettings.json ./
++COPY --from=build-env /build/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/out/* ./
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/start.sh ./
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/NOTICE.txt ./
++COPY LICENSE ./
++
++RUN chmod +x ./start.sh
++ENTRYPOINT ["./start.sh"]
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/Dockerfile.arm32v7 b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/Dockerfile.arm32v7
+new file mode 100644
+index 00000000..7681740d
+--- /dev/null
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/Dockerfile.arm32v7
+@@ -0,0 +1,40 @@
++FROM mcr.microsoft.com/dotnet/sdk:6.0-bullseye-slim-amd64 AS build-env
++
++WORKDIR /build
++COPY Directory.Build.props ./
++COPY AssemblyInfo.cs ./
++COPY .editorconfig ./
++COPY global.json ./
++
++WORKDIR /build/LoRaEngine/modules
++COPY ["LoRaEngine/modules/LoRaWan.NetworkServerDiscovery/LoRaWan.NetworkServerDiscovery.csproj", "LoRaWan.NetworkServerDiscovery/"]
++
++WORKDIR /build/LoRaEngine/modules/LoRaWanNetworkSrvModule
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj", "LoRaWanNetworkSrvModule/"]
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer/LoRaWan.NetworkServer.csproj", "LoRaWan.NetworkServer/"]
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan/LoRaWan.csproj", "LoRaWan/"]
++COPY ["LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/LoRaTools.csproj", "LoraTools/"]
++RUN dotnet restore "LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj"
++
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools LoraTools
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan.NetworkServer LoRaWan.NetworkServer
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule LoRaWanNetworkSrvModule
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWan LoRaWan
++
++WORKDIR /build/LoRaEngine/modules
++COPY ./LoRaEngine/modules/LoRaWan.NetworkServerDiscovery LoRaWan.NetworkServerDiscovery
++
++WORKDIR /build/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule
++
++RUN dotnet publish "LoRaWanNetworkSrvModule.csproj" -c Release -o out --no-restore
++
++FROM mcr.microsoft.com/dotnet/aspnet:6.0-bullseye-slim-arm32v7
++WORKDIR /app
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/appsettings.json ./
++COPY --from=build-env /build/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/out/* ./
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/start.sh ./
++COPY ./LoRaEngine/modules/LoRaWanNetworkSrvModule/NOTICE.txt ./
++COPY LICENSE ./
++
++RUN chmod +x ./start.sh
++ENTRYPOINT ["./start.sh"]
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj
+index 762779d3..1141f3f8 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule/LoRaWanNetworkSrvModule.csproj
+@@ -1,20 +1,19 @@
+-<Project Sdk="Microsoft.NET.Sdk">
++<Project Sdk="Microsoft.NET.Sdk;Microsoft.NET.Sdk.Publish">
+   <PropertyGroup>
+     <OutputType>Exe</OutputType>
+     <TargetFramework>$(TargetFramework)</TargetFramework>
++    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
++    <DockerfileContext>..\..\..\..</DockerfileContext>
+   </PropertyGroup>
+-
+   <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Debug|netcoreapp2.1|AnyCPU'">
+     <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+     <TreatSpecificWarningsAsErrors />
+   </PropertyGroup>
+-
+   <ItemGroup>
++    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.17.2" />
+     <PackageReference Include="System.Runtime.Loader" Version="4.3.0" />
+   </ItemGroup>
+-
+   <ItemGroup>
+     <ProjectReference Include="..\LoRaWan.NetworkServer\LoRaWan.NetworkServer.csproj" />
+   </ItemGroup>
+-
+-</Project>
++</Project>
+\ No newline at end of file
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/ADR/LoRaADRTableEntry.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/ADR/LoRaADRTableEntry.cs
+index ad9be8dc..b01f1cba 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/ADR/LoRaADRTableEntry.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/ADR/LoRaADRTableEntry.cs
+@@ -1,5 +1,6 @@
+ // Copyright (c) Microsoft. All rights reserved.
+ // Licensed under the MIT license. See LICENSE file in the project root for full license information.
++#pragma warning disable CA1507
+ 
+ namespace LoRaTools.ADR
+ {
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/CommonAPI/DeviceJoinNotification.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/CommonAPI/DeviceJoinNotification.cs
+index e8536790..3f0d6d10 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/CommonAPI/DeviceJoinNotification.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/CommonAPI/DeviceJoinNotification.cs
+@@ -1,6 +1,6 @@
+ // Copyright (c) Microsoft. All rights reserved.
+ // Licensed under the MIT license. See LICENSE file in the project root for full license information.
+-
++#pragma warning disable CA1507
+ namespace LoRaTools.CommonAPI
+ {
+     using LoRaWan;
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/Cid.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/Cid.cs
+index aa3f4baf..632481ba 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/Cid.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/Cid.cs
+@@ -14,6 +14,9 @@ namespace LoRaTools
+         DevStatusCmd = 6,
+         NewChannelCmd = 7,
+         RXTimingCmd = 8,
+-        TxParamSetupCmd = 9
++        TxParamSetupCmd = 9,
++        WSDBRegistrationRequest = 0x80,
++        WSDBRegistrationResponse = 0x81
++
+     }
+ }
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommand.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommand.cs
+index 47300825..b8dffe25 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommand.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommand.cs
+@@ -108,6 +108,23 @@ namespace LoRaTools
+                             pointer += txParamSetupAnswer.Length;
+                             macCommands.Add(txParamSetupAnswer);
+                             break;
++                        case Cid.WSDBRegistrationRequest:
++
++                            double lat1 = ((input.Span[4] << 24) | (input.Span[3] << 16) | (input.Span[2] << 8) | (input.Span[1] & 0xFF)) / 1000000.0F;
++                            var lon = ((input.Span[8] << 24) | (input.Span[7] << 16) | (input.Span[6] << 8) | (input.Span[8] & 0xFF)) / 1000000.0F;
++                            //   logger?.LogInformation($"WSDBReg  lat:{lat1}  lon: {lon}");
++                            var rfChainA = (UInt32)473187500;
++                            var rfChainB = (UInt32)479187500;
++                            var dateTime = DateTime.Now;
++                            var epochStart = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
++                            var timeSpan = dateTime.ToUniversalTime() - epochStart;
++                            var expiryEpoch = (UInt32)timeSpan.TotalSeconds;
++                            var wsdbRegistrationResponse = new WSDBRegistrationResponse(rfChainA, rfChainB, expiryEpoch);
++                            pointer += wsdbRegistrationResponse.Length;
++                            macCommands.Add(wsdbRegistrationResponse);
++                            break;
++                        case Cid.WSDBRegistrationResponse:
++                            break;
+                         default:
+                             logger?.LogError($"a transmitted Mac Command value ${input.Span[pointer]} was not from a supported type. Aborting Mac Command processing");
+                             return null;
+@@ -147,6 +164,10 @@ namespace LoRaTools
+                             pointer += devStatusRequest.Length;
+                             macCommands.Add(devStatusRequest);
+                             break;
++                        case Cid.WSDBRegistrationResponse:
++                            break;
++                        case Cid.WSDBRegistrationRequest:
++                            break;
+                         case Cid.LinkADRCmd:
+                         case Cid.DutyCycleCmd:
+                         case Cid.RXParamCmd:
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommandJsonConverter.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommandJsonConverter.cs
+index df96c9b1..e8d397b9 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommandJsonConverter.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/MACCommandJsonConverter.cs
+@@ -87,6 +87,14 @@ namespace LoRaTools
+                         serializer.Populate(item.CreateReader(), cmd);
+                         return cmd;
+                     }
++                    case Cid.WSDBRegistrationRequest:
++                    {
++                        var cmd = new WSDBRegistrationRequest();
++                        serializer.Populate(item.CreateReader(), cmd);
++                        return cmd;
++                    }
++                    case Cid.WSDBRegistrationResponse:
++                        break;
+                     case Cid.TxParamSetupCmd:
+                     default:
+                         throw new JsonReaderException($"Unhandled command identifier: {macCommandType}");
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/WSDBRegistrationRequest.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/WSDBRegistrationRequest.cs
+new file mode 100644
+index 00000000..88b5eb84
+--- /dev/null
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/WSDBRegistrationRequest.cs
+@@ -0,0 +1,67 @@
++// Copyright (c) Microsoft. All rights reserved.
++// Licensed under the MIT license. See LICENSE file in the project root for full license information.
++
++namespace LoRaTools
++{
++#pragma warning disable CA1507
++    using System;
++    using System.Collections.Generic;
++    using Newtonsoft.Json;
++    public class WSDBRegistrationRequest : MacCommand
++    {
++        [JsonProperty("Latitude")] public Int32 Latitude { get; set; }
++
++        [JsonProperty("Longitude")] public Int32 Longitude { get; set; }
++
++        public override int Length => 7;
++
++        public override string ToString()
++        {
++            return $"Type: {Cid} Answer, Latitude: {Latitude}, Margin: {Longitude}";
++        }
++
++        /// <summary>
++        /// Initializes a new instance of the <see cref="DevStatusAnswer"/> class.
++        /// Upstream constructor.
++        /// </summary>
++        public WSDBRegistrationRequest(Int32 latitude, Int32 longitude)
++        {
++            Latitude = latitude;
++            Longitude = longitude;
++            Cid = Cid.WSDBRegistrationRequest;
++        }
++        public WSDBRegistrationRequest()
++        {
++            Cid = Cid.WSDBRegistrationRequest;
++        }
++        public WSDBRegistrationRequest(ReadOnlySpan<byte> readOnlySpan)
++            : base(readOnlySpan)
++        {
++            if (readOnlySpan.Length < Length)
++            {
++                throw new InvalidOperationException("WSDBRegistrationRequest detected but the byte format is not correct");
++            }
++            else
++            {
++                Cid = (Cid)readOnlySpan[0];
++                Latitude = readOnlySpan[1] << 16;
++                Latitude |= readOnlySpan[2] << 8;
++                Latitude |= readOnlySpan[3];
++                Longitude = readOnlySpan[1] << 16;
++                Longitude |= readOnlySpan[2] << 8;
++                Longitude |= readOnlySpan[3];
++            }
++        }
++
++        public override IEnumerable<byte> ToBytes()
++        {
++            yield return (byte)Cid;
++            yield return (byte)(Latitude << 16);
++            yield return (byte)(Latitude << 8);
++            yield return (byte)(Latitude & 0x0ff);
++            yield return (byte)(Longitude << 16);
++            yield return (byte)(Longitude << 8);
++            yield return (byte)(Longitude & 0x0ff);
++        }
++    }
++}
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/WSDBRegistrationResponse.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/WSDBRegistrationResponse.cs
+new file mode 100644
+index 00000000..7db18268
+--- /dev/null
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Mac/WSDBRegistrationResponse.cs
+@@ -0,0 +1,55 @@
++// Copyright (c) Microsoft. All rights reserved.
++// Licensed under the MIT license. See LICENSE file in the project root for full license information.
++
++namespace LoRaTools
++{
++    using System;
++    using Newtonsoft.Json;
++    using System.Collections.Generic;
++#pragma warning disable CA1507
++    public class WSDBRegistrationResponse : MacCommand
++    {
++        [JsonProperty("RfChainAIF")] public UInt32 RfChainAIF { get; set; }
++        [JsonProperty("RfChainBIF")] public UInt32 RfChainBIF { get; set; }
++        [JsonProperty("ExpiryEpoch")] public UInt32 ExpiryEpoch { get; set; }
++        public override int Length => 13;
++
++
++        public WSDBRegistrationResponse()
++        {
++            Cid = Cid.WSDBRegistrationResponse;
++            RfChainAIF = 0;
++            RfChainBIF = 0;
++        }
++
++        public WSDBRegistrationResponse(UInt32 rfchainAif, UInt32 rfchainBif, UInt32 expiryEpoch)
++        {
++            Cid = Cid.WSDBRegistrationResponse;
++            RfChainAIF = rfchainAif;
++            RfChainBIF = rfchainBif;
++            ExpiryEpoch = expiryEpoch;
++        }
++
++        public override IEnumerable<byte> ToBytes()
++        {
++            yield return (byte)Cid;
++            yield return (byte)(RfChainAIF >> 24);
++            yield return (byte)(RfChainAIF >> 16);
++            yield return (byte)(RfChainAIF >> 8);
++            yield return (byte)(RfChainAIF & 0xFF);
++            yield return (byte)(RfChainBIF >> 24);
++            yield return (byte)(RfChainBIF >> 16);
++            yield return (byte)(RfChainBIF >> 8);
++            yield return (byte)(RfChainBIF & 0xFF);
++            yield return (byte)(ExpiryEpoch >> 24);
++            yield return (byte)(ExpiryEpoch >> 16);
++            yield return (byte)(ExpiryEpoch >> 8);
++            yield return (byte)(ExpiryEpoch & 0xFF);
++        }
++
++        public override string ToString()
++        {
++            return $"Type: {Cid} RFCHAINA_IF: {RfChainAIF} RFCHAINB_IF: {RfChainBIF} ExpiryEpoch: {ExpiryEpoch} ";
++        }
++    }
++}
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/LoRaRegionType.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/LoRaRegionType.cs
+index cf6841e0..181024a1 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/LoRaRegionType.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/LoRaRegionType.cs
+@@ -14,6 +14,7 @@ namespace LoRaTools.Regions
+         AU915,
+         // Following regions are added in the enum for BasicsStation compatibility
+         EU863,
+-        US902
++        US902,
++        US470
+     }
+ }
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionManager.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionManager.cs
+index 1f8be8d4..35d09aeb 100644
+--- a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionManager.cs
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionManager.cs
+@@ -37,13 +37,26 @@ namespace LoRaTools.Regions
+                 case LoRaRegionType.AU915:
+                     region = AU915RP1;
+                     return true;
+-
++                case LoRaRegionType.US470:
++                    region = US470;
++                    return true;
+                 case LoRaRegionType.NotSet:
+                 default:
+                     return false;
+             }
+         }
+ 
++        private static Region us470;
++
++        public static Region US470
++        {
++            get
++            {
++                us470 ??= new RegionUS470();
++
++                return us470;
++            }
++        }
+         private static Region eu868;
+ 
+         public static Region EU868
+diff --git a/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionUS470.cs b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionUS470.cs
+new file mode 100644
+index 00000000..de63f4fc
+--- /dev/null
++++ b/LoRaEngine/modules/LoRaWanNetworkSrvModule/LoraTools/Regions/RegionUS470.cs
+@@ -0,0 +1,194 @@
++// Copyright (c) Microsoft. All rights reserved.
++// Licensed under the MIT license. See LICENSE file in the project root for full license information.
++
++namespace LoRaTools.Regions
++{
++    using System.Collections.Generic;
++    using System.Collections.Immutable;
++    using LoRaTools.Utils;
++    using LoRaWan;
++    using static LoRaWan.DataRateIndex;
++    using static LoRaWan.Metric;
++
++    public class RegionUS470 : Region
++    {
++        // Frequencies calculated according to formula:
++        // 923.3 + upstreamChannelNumber % 8 * 0.6,
++        // rounded to first decimal point
++        private int upstreamTVCH = -1;
++
++        private static readonly Hertz[] DownstreamChannelFrequencies =
++        {
++            Mega(470.312500),Mega(470.437500),Mega(470.562500),Mega(470.687500),Mega(470.812500),Mega(470.937500),Mega(471.062500),Mega(471.187500),Mega(471.312500),Mega(471.437500),Mega(471.562500),Mega(471.687500),Mega(471.812500),Mega(471.937500),Mega(472.062500),Mega(472.187500),Mega(472.312500),Mega(472.437500),Mega(472.562500),Mega(472.687500),Mega(472.812500),Mega(472.937500),Mega(473.062500),Mega(473.187500),Mega(473.312500),Mega(473.437500),Mega(473.562500),Mega(473.687500),Mega(473.812500),Mega(473.937500),Mega(474.062500),Mega(474.187500),Mega(474.312500),Mega(474.437500),Mega(474.562500),Mega(474.687500),Mega(474.812500),Mega(474.937500),Mega(475.062500),Mega(475.187500),Mega(475.312500),Mega(475.437500),Mega(475.562500),Mega(475.687500),
++            Mega(476.312500),Mega(476.437500),Mega(476.562500),Mega(476.687500),Mega(476.812500),Mega(476.937500),Mega(477.062500),Mega(477.187500),Mega(477.312500),Mega(477.437500),Mega(477.562500),Mega(477.687500),Mega(477.812500),Mega(477.937500),Mega(478.062500),Mega(478.187500),Mega(478.312500),Mega(478.437500),Mega(478.562500),Mega(478.687500),Mega(478.812500),Mega(478.937500),Mega(479.062500),Mega(479.187500),Mega(479.312500),Mega(479.437500),Mega(479.562500),Mega(479.687500),Mega(479.812500),Mega(479.937500),Mega(480.062500),Mega(480.187500),Mega(480.312500),Mega(480.437500),Mega(480.562500),Mega(480.687500),Mega(480.812500),Mega(480.937500),Mega(481.062500),Mega(481.187500),Mega(481.312500),Mega(481.437500),Mega(481.562500),Mega(481.687500),
++            Mega(482.312500),Mega(482.437500),Mega(482.562500),Mega(482.687500),Mega(482.812500),Mega(482.937500),Mega(483.062500),Mega(483.187500),Mega(483.312500),Mega(483.437500),Mega(483.562500),Mega(483.687500),Mega(483.812500),Mega(483.937500),Mega(484.062500),Mega(484.187500),Mega(484.312500),Mega(484.437500),Mega(484.562500),Mega(484.687500),Mega(484.812500),Mega(484.937500),Mega(485.062500),Mega(485.187500),Mega(485.312500),Mega(485.437500),Mega(485.562500),Mega(485.687500),Mega(485.812500),Mega(485.937500),Mega(486.062500),Mega(486.187500),Mega(486.312500),Mega(486.437500),Mega(486.562500),Mega(486.687500),Mega(486.812500),Mega(486.937500),Mega(487.062500),Mega(487.187500),Mega(487.312500),Mega(487.437500),Mega(487.562500),Mega(487.687500),
++            Mega(488.312500),Mega(488.437500),Mega(488.562500),Mega(488.687500),Mega(488.812500),Mega(488.937500),Mega(489.062500),Mega(489.187500),Mega(489.312500),Mega(489.437500),Mega(489.562500),Mega(489.687500),Mega(489.812500),Mega(489.937500),Mega(490.062500),Mega(490.187500),Mega(490.312500),Mega(490.437500),Mega(490.562500),Mega(490.687500),Mega(490.812500),Mega(490.937500),Mega(491.062500),Mega(491.187500),Mega(491.312500),Mega(491.437500),Mega(491.562500),Mega(491.687500),Mega(491.812500),Mega(491.937500),Mega(492.062500),Mega(492.187500),Mega(492.312500),Mega(492.437500),Mega(492.562500),Mega(492.687500),Mega(492.812500),Mega(492.937500),Mega(493.062500),Mega(493.187500),Mega(493.312500),Mega(493.437500),Mega(493.562500),Mega(493.687500),
++            Mega(494.312500),Mega(494.437500),Mega(494.562500),Mega(494.687500),Mega(494.812500),Mega(494.937500),Mega(495.062500),Mega(495.187500),Mega(495.312500),Mega(495.437500),Mega(495.562500),Mega(495.687500),Mega(495.812500),Mega(495.937500),Mega(496.062500),Mega(496.187500),Mega(496.312500),Mega(496.437500),Mega(496.562500),Mega(496.687500),Mega(496.812500),Mega(496.937500),Mega(497.062500),Mega(497.187500),Mega(497.312500),Mega(497.437500),Mega(497.562500),Mega(497.687500),Mega(497.812500),Mega(497.937500),Mega(498.062500),Mega(498.187500),Mega(498.312500),Mega(498.437500),Mega(498.562500),Mega(498.687500),Mega(498.812500),Mega(498.937500),Mega(499.062500),Mega(499.187500),Mega(499.312500),Mega(499.437500),Mega(499.562500),Mega(499.687500),
++            Mega(500.312500),Mega(500.437500),Mega(500.562500),Mega(500.687500),Mega(500.812500),Mega(500.937500),Mega(501.062500),Mega(501.187500),Mega(501.312500),Mega(501.437500),Mega(501.562500),Mega(501.687500),Mega(501.812500),Mega(501.937500),Mega(502.062500),Mega(502.187500),Mega(502.312500),Mega(502.437500),Mega(502.562500),Mega(502.687500),Mega(502.812500),Mega(502.937500),Mega(503.062500),Mega(503.187500),Mega(503.312500),Mega(503.437500),Mega(503.562500),Mega(503.687500),Mega(503.812500),Mega(503.937500),Mega(504.062500),Mega(504.187500),Mega(504.312500),Mega(504.437500),Mega(504.562500),Mega(504.687500),Mega(504.812500),Mega(504.937500),Mega(505.062500),Mega(505.187500),Mega(505.312500),Mega(505.437500),Mega(505.562500),Mega(505.687500),
++            Mega(506.312500),Mega(506.437500),Mega(506.562500),Mega(506.687500),Mega(506.812500),Mega(506.937500),Mega(507.062500),Mega(507.187500),Mega(507.312500),Mega(507.437500),Mega(507.562500),Mega(507.687500),Mega(507.812500),Mega(507.937500),Mega(508.062500),Mega(508.187500),Mega(508.312500),Mega(508.437500),Mega(508.562500),Mega(508.687500),Mega(508.812500),Mega(508.937500),Mega(509.062500),Mega(509.187500),Mega(509.312500),Mega(509.437500),Mega(509.562500),Mega(509.687500),Mega(509.812500),Mega(509.937500),Mega(510.062500),Mega(510.187500),Mega(510.312500),Mega(510.437500),Mega(510.562500),Mega(510.687500),Mega(510.812500),Mega(510.937500),Mega(511.062500),Mega(511.187500),Mega(511.312500),Mega(511.437500),Mega(511.562500),Mega(511.687500),
++            Mega(512.312500),Mega(512.437500),Mega(512.562500),Mega(512.687500),Mega(512.812500),Mega(512.937500),Mega(513.062500),Mega(513.187500),Mega(513.312500),Mega(513.437500),Mega(513.562500),Mega(513.687500),Mega(513.812500),Mega(513.937500),Mega(514.062500),Mega(514.187500),Mega(514.312500),Mega(514.437500),Mega(514.562500),Mega(514.687500),Mega(514.812500),Mega(514.937500),Mega(515.062500),Mega(515.187500),Mega(515.312500),Mega(515.437500),Mega(515.562500),Mega(515.687500),Mega(515.812500),Mega(515.937500),Mega(516.062500),Mega(516.187500),Mega(516.312500),Mega(516.437500),Mega(516.562500),Mega(516.687500),Mega(516.812500),Mega(516.937500),Mega(517.062500),Mega(517.187500),Mega(517.312500),Mega(517.437500),Mega(517.562500),Mega(517.687500),
++            Mega(518.312500),Mega(518.437500),Mega(518.562500),Mega(518.687500),Mega(518.812500),Mega(518.937500),Mega(519.062500),Mega(519.187500),Mega(519.312500),Mega(519.437500),Mega(519.562500),Mega(519.687500),Mega(519.812500),Mega(519.937500),Mega(520.062500),Mega(520.187500),Mega(520.312500),Mega(520.437500),Mega(520.562500),Mega(520.687500),Mega(520.812500),Mega(520.937500),Mega(521.062500),Mega(521.187500),Mega(521.312500),Mega(521.437500),Mega(521.562500),Mega(521.687500),Mega(521.812500),Mega(521.937500),Mega(522.062500),Mega(522.187500),Mega(522.312500),Mega(522.437500),Mega(522.562500),Mega(522.687500),Mega(522.812500),Mega(522.937500),Mega(523.062500),Mega(523.187500),Mega(523.312500),Mega(523.437500),Mega(523.562500),Mega(523.687500),
++            Mega(524.312500),Mega(524.437500),Mega(524.562500),Mega(524.687500),Mega(524.812500),Mega(524.937500),Mega(525.062500),Mega(525.187500),Mega(525.312500),Mega(525.437500),Mega(525.562500),Mega(525.687500),Mega(525.812500),Mega(525.937500),Mega(526.062500),Mega(526.187500),Mega(526.312500),Mega(526.437500),Mega(526.562500),Mega(526.687500),Mega(526.812500),Mega(526.937500),Mega(527.062500),Mega(527.187500),Mega(527.312500),Mega(527.437500),Mega(527.562500),Mega(527.687500),Mega(527.812500),Mega(527.937500),Mega(528.062500),Mega(528.187500),Mega(528.312500),Mega(528.437500),Mega(528.562500),Mega(528.687500),Mega(528.812500),Mega(528.937500),Mega(529.062500),Mega(529.187500),Mega(529.312500),Mega(529.437500),Mega(529.562500),Mega(529.687500),
++            Mega(530.312500),Mega(530.437500),Mega(530.562500),Mega(530.687500),Mega(530.812500),Mega(530.937500),Mega(531.062500),Mega(531.187500),Mega(531.312500),Mega(531.437500),Mega(531.562500),Mega(531.687500),Mega(531.812500),Mega(531.937500),Mega(532.062500),Mega(532.187500),Mega(532.312500),Mega(532.437500),Mega(532.562500),Mega(532.687500),Mega(532.812500),Mega(532.937500),Mega(533.062500),Mega(533.187500),Mega(533.312500),Mega(533.437500),Mega(533.562500),Mega(533.687500),Mega(533.812500),Mega(533.937500),Mega(534.062500),Mega(534.187500),Mega(534.312500),Mega(534.437500),Mega(534.562500),Mega(534.687500),Mega(534.812500),Mega(534.937500),Mega(535.062500),Mega(535.187500),Mega(535.312500),Mega(535.437500),Mega(535.562500),Mega(535.687500),
++            Mega(536.312500),Mega(536.437500),Mega(536.562500),Mega(536.687500),Mega(536.812500),Mega(536.937500),Mega(537.062500),Mega(537.187500),Mega(537.312500),Mega(537.437500),Mega(537.562500),Mega(537.687500),Mega(537.812500),Mega(537.937500),Mega(538.062500),Mega(538.187500),Mega(538.312500),Mega(538.437500),Mega(538.562500),Mega(538.687500),Mega(538.812500),Mega(538.937500),Mega(539.062500),Mega(539.187500),Mega(539.312500),Mega(539.437500),Mega(539.562500),Mega(539.687500),Mega(539.812500),Mega(539.937500),Mega(540.062500),Mega(540.187500),Mega(540.312500),Mega(540.437500),Mega(540.562500),Mega(540.687500),Mega(540.812500),Mega(540.937500),Mega(541.062500),Mega(541.187500),Mega(541.312500),Mega(541.437500),Mega(541.562500),Mega(541.687500),
++            Mega(542.312500),Mega(542.437500),Mega(542.562500),Mega(542.687500),Mega(542.812500),Mega(542.937500),Mega(543.062500),Mega(543.187500),Mega(543.312500),Mega(543.437500),Mega(543.562500),Mega(543.687500),Mega(543.812500),Mega(543.937500),Mega(544.062500),Mega(544.187500),Mega(544.312500),Mega(544.437500),Mega(544.562500),Mega(544.687500),Mega(544.812500),Mega(544.937500),Mega(545.062500),Mega(545.187500),Mega(545.312500),Mega(545.437500),Mega(545.562500),Mega(545.687500),Mega(545.812500),Mega(545.937500),Mega(546.062500),Mega(546.187500),Mega(546.312500),Mega(546.437500),Mega(546.562500),Mega(546.687500),Mega(546.812500),Mega(546.937500),Mega(547.062500),Mega(547.187500),Mega(547.312500),Mega(547.437500),Mega(547.562500),Mega(547.687500),
++            Mega(548.312500),Mega(548.437500),Mega(548.562500),Mega(548.687500),Mega(548.812500),Mega(548.937500),Mega(549.062500),Mega(549.187500),Mega(549.312500),Mega(549.437500),Mega(549.562500),Mega(549.687500),Mega(549.812500),Mega(549.937500),Mega(550.062500),Mega(550.187500),Mega(550.312500),Mega(550.437500),Mega(550.562500),Mega(550.687500),Mega(550.812500),Mega(550.937500),Mega(551.062500),Mega(551.187500),Mega(551.312500),Mega(551.437500),Mega(551.562500),Mega(551.687500),Mega(551.812500),Mega(551.937500),Mega(552.062500),Mega(552.187500),Mega(552.312500),Mega(552.437500),Mega(552.562500),Mega(552.687500),Mega(552.812500),Mega(552.937500),Mega(553.062500),Mega(553.187500),Mega(553.312500),Mega(553.437500),Mega(553.562500),Mega(553.687500),
++            Mega(554.312500),Mega(554.437500),Mega(554.562500),Mega(554.687500),Mega(554.812500),Mega(554.937500),Mega(555.062500),Mega(555.187500),Mega(555.312500),Mega(555.437500),Mega(555.562500),Mega(555.687500),Mega(555.812500),Mega(555.937500),Mega(556.062500),Mega(556.187500),Mega(556.312500),Mega(556.437500),Mega(556.562500),Mega(556.687500),Mega(556.812500),Mega(556.937500),Mega(557.062500),Mega(557.187500),Mega(557.312500),Mega(557.437500),Mega(557.562500),Mega(557.687500),Mega(557.812500),Mega(557.937500),Mega(558.062500),Mega(558.187500),Mega(558.312500),Mega(558.437500),Mega(558.562500),Mega(558.687500),Mega(558.812500),Mega(558.937500),Mega(559.062500),Mega(559.187500),Mega(559.312500),Mega(559.437500),Mega(559.562500),Mega(559.687500),
++            Mega(560.312500),Mega(560.437500),Mega(560.562500),Mega(560.687500),Mega(560.812500),Mega(560.937500),Mega(561.062500),Mega(561.187500),Mega(561.312500),Mega(561.437500),Mega(561.562500),Mega(561.687500),Mega(561.812500),Mega(561.937500),Mega(562.062500),Mega(562.187500),Mega(562.312500),Mega(562.437500),Mega(562.562500),Mega(562.687500),Mega(562.812500),Mega(562.937500),Mega(563.062500),Mega(563.187500),Mega(563.312500),Mega(563.437500),Mega(563.562500),Mega(563.687500),Mega(563.812500),Mega(563.937500),Mega(564.062500),Mega(564.187500),Mega(564.312500),Mega(564.437500),Mega(564.562500),Mega(564.687500),Mega(564.812500),Mega(564.937500),Mega(565.062500),Mega(565.187500),Mega(565.312500),Mega(565.437500),Mega(565.562500),Mega(565.687500),
++            Mega(566.312500),Mega(566.437500),Mega(566.562500),Mega(566.687500),Mega(566.812500),Mega(566.937500),Mega(567.062500),Mega(567.187500),Mega(567.312500),Mega(567.437500),Mega(567.562500),Mega(567.687500),Mega(567.812500),Mega(567.937500),Mega(568.062500),Mega(568.187500),Mega(568.312500),Mega(568.437500),Mega(568.562500),Mega(568.687500),Mega(568.812500),Mega(568.937500),Mega(569.062500),Mega(569.187500),Mega(569.312500),Mega(569.437500),Mega(569.562500),Mega(569.687500),Mega(569.812500),Mega(569.937500),Mega(570.062500),Mega(570.187500),Mega(570.312500),Mega(570.437500),Mega(570.562500),Mega(570.687500),Mega(570.812500),Mega(570.937500),Mega(571.062500),Mega(571.187500),Mega(571.312500),Mega(571.437500),Mega(571.562500),Mega(571.687500),
++            Mega(572.312500),Mega(572.437500),Mega(572.562500),Mega(572.687500),Mega(572.812500),Mega(572.937500),Mega(573.062500),Mega(573.187500),Mega(573.312500),Mega(573.437500),Mega(573.562500),Mega(573.687500),Mega(573.812500),Mega(573.937500),Mega(574.062500),Mega(574.187500),Mega(574.312500),Mega(574.437500),Mega(574.562500),Mega(574.687500),Mega(574.812500),Mega(574.937500),Mega(575.062500),Mega(575.187500),Mega(575.312500),Mega(575.437500),Mega(575.562500),Mega(575.687500),Mega(575.812500),Mega(575.937500),Mega(576.062500),Mega(576.187500),Mega(576.312500),Mega(576.437500),Mega(576.562500),Mega(576.687500),Mega(576.812500),Mega(576.937500),Mega(577.062500),Mega(577.187500),Mega(577.312500),Mega(577.437500),Mega(577.562500),Mega(577.687500),
++            Mega(578.312500),Mega(578.437500),Mega(578.562500),Mega(578.687500),Mega(578.812500),Mega(578.937500),Mega(579.062500),Mega(579.187500),Mega(579.312500),Mega(579.437500),Mega(579.562500),Mega(579.687500),Mega(579.812500),Mega(579.937500),Mega(580.062500),Mega(580.187500),Mega(580.312500),Mega(580.437500),Mega(580.562500),Mega(580.687500),Mega(580.812500),Mega(580.937500),Mega(581.062500),Mega(581.187500),Mega(581.312500),Mega(581.437500),Mega(581.562500),Mega(581.687500),Mega(581.812500),Mega(581.937500),Mega(582.062500),Mega(582.187500),Mega(582.312500),Mega(582.437500),Mega(582.562500),Mega(582.687500),Mega(582.812500),Mega(582.937500),Mega(583.062500),Mega(583.187500),Mega(583.312500),Mega(583.437500),Mega(583.562500),Mega(583.687500),
++            Mega(584.312500),Mega(584.437500),Mega(584.562500),Mega(584.687500),Mega(584.812500),Mega(584.937500),Mega(585.062500),Mega(585.187500),Mega(585.312500),Mega(585.437500),Mega(585.562500),Mega(585.687500),Mega(585.812500),Mega(585.937500),Mega(586.062500),Mega(586.187500),Mega(586.312500),Mega(586.437500),Mega(586.562500),Mega(586.687500),Mega(586.812500),Mega(586.937500),Mega(587.062500),Mega(587.187500),Mega(587.312500),Mega(587.437500),Mega(587.562500),Mega(587.687500),Mega(587.812500),Mega(587.937500),Mega(588.062500),Mega(588.187500),Mega(588.312500),Mega(588.437500),Mega(588.562500),Mega(588.687500),Mega(588.812500),Mega(588.937500),Mega(589.062500),Mega(589.187500),Mega(589.312500),Mega(589.437500),Mega(589.562500),Mega(589.687500),
++            Mega(590.312500),Mega(590.437500),Mega(590.562500),Mega(590.687500),Mega(590.812500),Mega(590.937500),Mega(591.062500),Mega(591.187500),Mega(591.312500),Mega(591.437500),Mega(591.562500),Mega(591.687500),Mega(591.812500),Mega(591.937500),Mega(592.062500),Mega(592.187500),Mega(592.312500),Mega(592.437500),Mega(592.562500),Mega(592.687500),Mega(592.812500),Mega(592.937500),Mega(593.062500),Mega(593.187500),Mega(593.312500),Mega(593.437500),Mega(593.562500),Mega(593.687500),Mega(593.812500),Mega(593.937500),Mega(594.062500),Mega(594.187500),Mega(594.312500),Mega(594.437500),Mega(594.562500),Mega(594.687500),Mega(594.812500),Mega(594.937500),Mega(595.062500),Mega(595.187500),Mega(595.312500),Mega(595.437500),Mega(595.562500),Mega(595.687500),
++            Mega(596.312500),Mega(596.437500),Mega(596.562500),Mega(596.687500),Mega(596.812500),Mega(596.937500),Mega(597.062500),Mega(597.187500),Mega(597.312500),Mega(597.437500),Mega(597.562500),Mega(597.687500),Mega(597.812500),Mega(597.937500),Mega(598.062500),Mega(598.187500),Mega(598.312500),Mega(598.437500),Mega(598.562500),Mega(598.687500),Mega(598.812500),Mega(598.937500),Mega(599.062500),Mega(599.187500),Mega(599.312500),Mega(599.437500),Mega(599.562500),Mega(599.687500),Mega(599.812500),Mega(599.937500),Mega(600.062500),Mega(600.187500),Mega(600.312500),Mega(600.437500),Mega(600.562500),Mega(600.687500),Mega(600.812500),Mega(600.937500),Mega(601.062500),Mega(601.187500),Mega(601.312500),Mega(601.437500),Mega(601.562500),Mega(601.687500),
++
++        };
++
++        //private static readonly Hertz[] Downstream24thChannelFrequencies =
++        //{
++        //    Mega(473.187500), Mega(479.187500), Mega(485.187500), Mega(491.187500), Mega(497.187500), Mega(503.187500),
++        //    Mega(509.187500), Mega(515.187500), Mega(521.187500), Mega(527.187500), Mega(533.187500), Mega(539.187500),
++        //    Mega(545.187500), Mega(551.187500), Mega(557.187500), Mega(563.187500), Mega(569.187500), Mega(575.187500),
++        //    Mega(581.187500), Mega(587.187500), Mega(593.187500), Mega(599.187500)
++        //};
++        private static readonly ImmutableDictionary<DataRateIndex, (DataRate DataRate, uint MaxPayloadSize)> DrToConfigurationByDrIndex =
++            new Dictionary<DataRateIndex, (DataRate DataRate, uint MaxPayloadSize)>
++            {
++                [DR0] = (LoRaDataRate.SF10BW125, MaxPayloadSize: 250),
++                [DR1] = (LoRaDataRate.SF9BW125, MaxPayloadSize: 250),
++                [DR2] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++                [DR3] = (LoRaDataRate.SF7BW125, MaxPayloadSize: 250),
++                [DR4] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++                [DR5] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 2500),
++                [DR6] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++                [DR7] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++                [DR8] = (LoRaDataRate.SF12BW125, MaxPayloadSize: 250),
++                [DR9] = (LoRaDataRate.SF11BW125, MaxPayloadSize: 250),
++                [DR10] = (LoRaDataRate.SF9BW125, MaxPayloadSize: 250),
++                [DR11] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++                [DR12] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++                [DR13] = (LoRaDataRate.SF8BW125, MaxPayloadSize: 250),
++            }.ToImmutableDictionary();
++
++        public override IReadOnlyDictionary<DataRateIndex, (DataRate DataRate, uint MaxPayloadSize)> DRtoConfiguration => DrToConfigurationByDrIndex;
++
++        private static readonly ImmutableDictionary<uint, double> MaxEirpByTxPower =
++            new Dictionary<uint, double>
++            {
++                [0] = 30,
++                [1] = 29,
++                [2] = 28,
++                [3] = 27,
++                [4] = 26,
++                [5] = 25,
++                [6] = 24,
++                [7] = 23,
++                [8] = 22,
++                [9] = 21,
++                [10] = 20,
++                [11] = 19,
++                [12] = 18,
++                [13] = 17,
++            }.ToImmutableDictionary();
++
++        public override IReadOnlyDictionary<uint, double> TXPowertoMaxEIRP => MaxEirpByTxPower;
++
++        private static readonly ImmutableArray<IReadOnlyList<DataRateIndex>> RX1DROffsetTableInternal =
++            new IReadOnlyList<DataRateIndex>[]
++            {
++                new[] { DR10, DR9,  DR8,  DR8  }.ToImmutableArray(),
++                new[] { DR11, DR10, DR9,  DR8  }.ToImmutableArray(),
++                new[] { DR12, DR11, DR10, DR9  }.ToImmutableArray(),
++                new[] { DR13, DR12, DR11, DR10 }.ToImmutableArray(),
++                new[] { DR13, DR13, DR12, DR11 }.ToImmutableArray(),
++            }.ToImmutableArray();
++
++        public override IReadOnlyList<IReadOnlyList<DataRateIndex>> RX1DROffsetTable => RX1DROffsetTableInternal;
++
++        public RegionUS470()
++            : base(LoRaRegionType.US470)
++        {
++            var upstreamValidDataranges = new HashSet<DataRate>
++            {
++                LoRaDataRate.SF10BW125, // 0
++                LoRaDataRate.SF9BW125,  // 1
++                LoRaDataRate.SF8BW125,  // 2
++                LoRaDataRate.SF7BW125,  //3
++                LoRaDataRate.SF8BW125, //4
++            };
++
++            var downstreamValidDataranges = new HashSet<DataRate>
++            {
++                LoRaDataRate.SF12BW125,  // 8
++                LoRaDataRate.SF11BW125,  // 9
++                LoRaDataRate.SF10BW125, // 10
++                LoRaDataRate.SF9BW125,  // 11
++                LoRaDataRate.SF8BW125,  // 12
++                LoRaDataRate.SF7BW125,//13
++            };
++
++            MaxADRDataRate = DR3;
++            RegionLimits = new RegionLimits((Min: Mega(470.312500), Max: Mega(601.687500)), upstreamValidDataranges, downstreamValidDataranges, DR0, DR8);
++        }
++
++        /// <summary>
++        /// Logic to get the correct downstream transmission frequency for region US915.
++        /// </summary>
++        /// <param name="upstreamFrequency">Frequency on which the message was transmitted.</param>
++        /// <param name="upstreamDataRate">Data rate at which the message was transmitted.</param>
++        /// <param name="deviceJoinInfo">Join info for the device, if applicable.</param>
++        public override bool TryGetDownstreamChannelFrequency(Hertz upstreamFrequency, DataRateIndex upstreamDataRate, DeviceJoinInfo deviceJoinInfo, out Hertz downstreamFrequency)
++        {
++            if (!IsValidUpstreamFrequency(upstreamFrequency))
++                throw new LoRaProcessingException($"Invalid upstream frequency {upstreamFrequency}", LoRaProcessingErrorCode.InvalidFrequency);
++
++            if (!IsValidUpstreamDataRate(upstreamDataRate))
++                throw new LoRaProcessingException($"Invalid upstream data rate {upstreamDataRate}", LoRaProcessingErrorCode.InvalidDataRate);
++            ///TODO rework
++            var foundChannel = 0;
++            var upstreamChannelNumber = -1;
++            var ifChannel = 0;
++            for (var tvch = 0; tvch < 22; tvch++)
++            {
++                for (var nbch = 0; nbch < 44; nbch++)
++                {
++                    var tvwsch_index = (tvch * 44) + nbch;
++                    if (DownstreamChannelFrequencies[tvwsch_index].InMega == upstreamFrequency.InMega)
++                    {
++                        upstreamChannelNumber = nbch;
++                        upstreamTVCH = tvch + ifChannel;
++                        foundChannel = 1;
++                        break;
++                    }
++                }
++
++            }
++            //for (upstreamChannelNumber = 0; upstreamChannelNumber < 968; upstreamChannelNumber++)
++            //{
++            //    if (DownstreamChannelFrequencies[upstreamChannelNumber].InMega == upstreamFrequency.InMega)
++            //    {
++            //        foundChannel = 1;
++            //        break;
++            //    }
++            //}
++            if (foundChannel == 1)
++            {
++                downstreamFrequency = DownstreamChannelFrequencies[(44 * upstreamTVCH) + (upstreamChannelNumber % 8)];
++            }
++            else
++            {
++                downstreamFrequency = DownstreamChannelFrequencies[7];
++            }
++            return true;
++        }
++
++        /// <summary>
++        /// Returns the default RX2 receive window parameters - frequency and data rate.
++        /// </summary>
++        /// <param name="deviceJoinInfo">Join info for the device, if applicable.</param>
++        public override ReceiveWindow GetDefaultRX2ReceiveWindow(DeviceJoinInfo deviceJoinInfo = null) => new ReceiveWindow(DR8, DownstreamChannelFrequencies[(44 * upstreamTVCH) + 3]);
++
++    }
++}
++
++

@@ -1,0 +1,7 @@
+# Gateway
+
+The gateway acts as an aggregator, collecting packets sent by node devices. It then forwards these packets to the network server hosted in the cloud. This is why the gateway’s software is referred to as a packet forwarder. FarmVibes.Connect's gateway is built following the reference design of [SX1302CxxxGW1 (Corecell)](https://doc.sm.tc/station/gw_corecell.html) concentrator provided by Semtech Corporation. The gateway software is based on the open-source implementation of [LoRa Basics™ Station](https://github.com/lorabasics/basicstation) packet forwarder. We provide a [patch](/src/gateway/gateway_patch.patch) that can be applied to the open-source [LoRa Basics™ Station](https://github.com/lorabasics/basicstation) to obtain the software for FarmVibes.Connect's gateway. To build and run the software after applying the patch, please follow the instructions provided in the [LoRa Basics™ Station](https://github.com/lorabasics/basicstation) repo.
+
+**Please note that we do not provide a license to use [LoRa Basics™ Station](https://github.com/lorabasics/basicstation); users must adhere to the licensing terms specified in the [LoRa Basics™ Station](https://github.com/lorabasics/basicstation).**
+
+Latest commit in [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) validated for applying patch: [https://github.com/lorabasics/basicstation/commit/ba4f85d80a438a5c2b659e568cd2d0f0de08e5a7](https://github.com/lorabasics/basicstation/commit/ba4f85d80a438a5c2b659e568cd2d0f0de08e5a7).

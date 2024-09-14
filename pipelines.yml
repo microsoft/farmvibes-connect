@@ -1,0 +1,21 @@
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+strategy:
+  matrix:
+    ubuntumachine:
+      vmImage: ubuntu-latest
+
+pool:
+  vmImage: $(vmImage)
+  
+
+steps:
+- task: ComponentGovernanceComponentDetection@0
+  inputs:
+    scanType: 'Register'
+    verbosity: 'Verbose'
+    alertWarningLevel: 'High'
+- task: CodeQL3000Init@0

@@ -1,0 +1,6 @@
+# Node device
+
+The node device primarily functions as a radio, transmitting packets (e.g., containing sensor data) wirelessly with the goal of being received by the gateway. FarmVibes.Connect's node device is built using the SX1262 radio chip from Semtech Corporation. The device's firmware is based on the open-source [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) implementation. We provide a [patch](/src/node/node_patch.patch) that can be applied to the open-source [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) to obtain the firmware for FarmVibes.Connect's node device. To build the firmware after applying the patch, please follow the instructions provided in the [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) repo. 
+**Please note that we do not provide a license to use [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node); users must adhere to the licensing terms specified in the [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node).**
+
+Latest commit in [LoRaMac-node](https://github.com/Lora-net/LoRaMac-node) validated for applying patch: [https://github.com/Lora-net/LoRaMac-node/commit/9218d00d3d8b2cf002112cdf15019cff064b19ec](https://github.com/Lora-net/LoRaMac-node/commit/9218d00d3d8b2cf002112cdf15019cff064b19ec).

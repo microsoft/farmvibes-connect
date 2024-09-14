@@ -1,0 +1,194 @@
+﻿diff --git a/examples/corecell/lns-tvws/station.conf b/examples/corecell/lns-tvws/station.conf
+new file mode 100644
+index 0000000..bf80dac
+--- /dev/null
++++ b/examples/corecell/lns-tvws/station.conf
+@@ -0,0 +1,57 @@
++{
++    /* If slave-X.conf present this acts as default settings */
++    "SX1302_conf": {                 /* Actual channel plan is controlled by server */
++        "device": "/dev/spidev0.0",
++        "lorawan_public": true,      /* is default */
++        "clksrc": 0,                 /* radio_0 provides clock to concentrator */
++        "full_duplex": false,
++	"pps": true,
++        "radio_0": {
++            /* freq/enable provided by LNS - only HW specific settings listed here */
++            "type": "SX1250",
++            "rssi_offset": -215.4,
++            "rssi_tcomp": {"coeff_a": 0, "coeff_b": 0, "coeff_c": 20.41, "coeff_d": 2162.56, "coeff_e": 0},
++            "tx_enable": true,
++            "antenna_gain": 0,           /* antenna gain, in dBi */
++            "tx_gain_lut":[
++                {"rf_power": 12, "pa_gain": 0, "pwr_idx": 15},
++                {"rf_power": 13, "pa_gain": 0, "pwr_idx": 16},
++                {"rf_power": 14, "pa_gain": 0, "pwr_idx": 17},
++                {"rf_power": 15, "pa_gain": 0, "pwr_idx": 19},
++                {"rf_power": 16, "pa_gain": 0, "pwr_idx": 20},
++                {"rf_power": 17, "pa_gain": 0, "pwr_idx": 22},
++                {"rf_power": 18, "pa_gain": 1, "pwr_idx": 1},
++                {"rf_power": 19, "pa_gain": 1, "pwr_idx": 2},
++                {"rf_power": 20, "pa_gain": 1, "pwr_idx": 3},
++                {"rf_power": 21, "pa_gain": 1, "pwr_idx": 4},
++                {"rf_power": 22, "pa_gain": 1, "pwr_idx": 5},
++                {"rf_power": 23, "pa_gain": 1, "pwr_idx": 6},
++                {"rf_power": 24, "pa_gain": 1, "pwr_idx": 7},
++                {"rf_power": 25, "pa_gain": 1, "pwr_idx": 9},
++                {"rf_power": 26, "pa_gain": 1, "pwr_idx": 11},
++                {"rf_power": 27, "pa_gain": 1, "pwr_idx": 20}
++            ]
++        },
++        "radio_1": {
++            "type": "SX1250",
++            "rssi_offset": -215.4,
++            "rssi_tcomp": {"coeff_a": 0, "coeff_b": 0, "coeff_c": 20.41, "coeff_d": 2162.56, "coeff_e": 0},
++            "tx_enable": false
++        }
++        /* chan_multiSF_X, chan_Lora_std, chan_FSK provided by LNS */
++    },
++    "station_conf": {
++        "radio_init": "rinit.sh",
++        "RADIO_INIT_WAIT": "5s",
++        "RX_POLL_INTV": "20ms",
++        "TC_TIMEOUT": "360s",
++        "log_file":  "stderr",   /* "station.log" */
++        "log_level": "INFO",  /* XDEBUG,DEBUG,VERBOSE,INFO,NOTICE,WARNING,ERROR,CRITICAL */
++        "log_size":  10000000,
++        "log_rotate":  3,
++	"gps":"/dev/ttyUSB0",
++	"pps":"gps"
++
++    }
++}
++
+diff --git a/examples/corecell/lns-tvws/tc.uri b/examples/corecell/lns-tvws/tc.uri
+new file mode 100644
+index 0000000..c176908
+--- /dev/null
++++ b/examples/corecell/lns-tvws/tc.uri
+@@ -0,0 +1 @@
++ws://172.17.0.1:5000
+diff --git a/src/kwcrc.h b/src/kwcrc.h
+index 033281d..9b700f7 100644
+--- a/src/kwcrc.h
++++ b/src/kwcrc.h
+@@ -119,6 +119,7 @@
+ #define J_uri                  ((ujcrc_t)(0x00757C6E))
+ #define J_US902                ((ujcrc_t)(0x061FA968))
+ #define J_US915                ((ujcrc_t)(0x061FA86E))
++#define J_US470                ((ujcrc_t)(0x06689260))
+ #define J_user                 ((ujcrc_t)(0x75F0DE11))
+ #define J_version              ((ujcrc_t)(0x00E51D6C))
+ #define J_web_port             ((ujcrc_t)(0xA9963701))
+diff --git a/src/kwlist.txt b/src/kwlist.txt
+index 7516d92..cd4b73c 100644
+--- a/src/kwlist.txt
++++ b/src/kwlist.txt
+@@ -116,6 +116,7 @@ upgrade
+ uri
+ US902
+ US915
++US470
+ user
+ version
+ web_port
+diff --git a/src/s2conf.h b/src/s2conf.h
+index 4108d4f..924458a 100644
+--- a/src/s2conf.h
++++ b/src/s2conf.h
+@@ -167,7 +167,7 @@ CONF_PARAM(TCP_KEEPALIVE_EN    , u4    , u4      ,   DFLT_TCP_KEEPALIVE, "TCP ke
+ CONF_PARAM(TCP_KEEPALIVE_IDLE  , u4    , u4      ,    DFLT_TCP_KEEPIDLE, "TCP keepalive TCP_KEEPIDLE [s]")
+ CONF_PARAM(TCP_KEEPALIVE_INTVL , u4    , u4      ,   DFLT_TCP_KEEPINTVL, "TCP keepalive TCP_KEEPINTVL [s]")
+ CONF_PARAM(TCP_KEEPALIVE_CNT   , u4    , u4      ,     DFLT_TCP_KEEPCNT, "TCP keepalive TCP_KEEPCNT")
+-CONF_PARAM(MAX_JOINEUI_RANGES  , u4    , u4      ,                 "10", "max ranges to suppress unwanted join requests")
++CONF_PARAM(MAX_JOINEUI_RANGES  , u4    , u4      ,                 "23", "max ranges to suppress unwanted join requests")
+ CONF_PARAM(CUPS_CONN_TIMEOUT   , ustime, tspan_s ,            "\"60s\"", "connection timeout")
+ CONF_PARAM(CUPS_OKSYNC_INTV    , ustime, tspan_h ,            "\"24h\"", "regular check-in with CUPS for updates")
+ CONF_PARAM(CUPS_RESYNC_INTV    , ustime, tspan_m ,             "\"1m\"", "check-in with CUPS for updates after a failure")
+diff --git a/src/s2e.c b/src/s2e.c
+index 6a9c009..7cf1d26 100644
+--- a/src/s2e.c
++++ b/src/s2e.c
+@@ -179,7 +179,7 @@ void s2e_flushRxjobs (s2ctx_t* s2ctx) {
+                   "upinfo",   '{',
+                   /**/ "rctx",    'I', j->rctx,
+                   /**/ "xtime",   'I', j->xtime,
+-                  /**/ "gpstime", 'I', ts_xtime2gpstime(j->xtime),
++                  /**/ "gpstime", 'i', j->dr,
+                   /**/ "fts",     'i', j->fts,
+                   /**/ "rssi",    'i', -(s4_t)j->rssi,
+                   /**/ "snr",     'g', j->snr/4.0,
+@@ -353,7 +353,7 @@ static void check_dnfreq (s2ctx_t* s2ctx, ujdec_t* ujd, u4_t* pfreq, u1_t* pchnl
+ static void check_dr (s2ctx_t* s2ctx, ujdec_t* ujd, u1_t* pdr) {
+     sL_t dr = uj_int(ujd);
+     if( dr < 0 || dr >= DR_CNT || s2ctx->dr_defs[dr] == RPS_ILLEGAL )
+-        uj_error(ujd, "Illegal datarate value: %d for region %s", dr, s2ctx->region_s);
++        uj_error(ujd, "Illegal datarate value: %d for region %s ctx dr=%d", dr, s2ctx->region_s, s2ctx->dr_defs[dr]);
+     *pdr = dr;
+ }
+ 
+@@ -798,7 +798,7 @@ static void s2e_bcntimeout (tmr_t* tmr) {
+     txjob->gpstime = gpstxtime;
+     txjob->xtime   = ts_gpstime2xtime(0, txjob->gpstime);
+     txjob->txtime  = ts_xtime2ustime(txjob->xtime);
+-    txjob->freq    = s2ctx->bcn.freqs[epoch % (ctrl>>4)];
++    txjob->freq    = s2ctx->bcn.freqs[epoch % 22];//s2ctx->bcn.freqs[epoch % (ctrl>>4)];
+     txjob->dr      = ctrl & 0xF;
+     txjob->addcrc  = false;
+     txjob->txflags = TXFLAG_BCN;
+@@ -953,13 +953,14 @@ static int handle_router_config (s2ctx_t* s2ctx, ujdec_t* D) {
+             if( !uj_null(D) ) {
+                 uj_enterArray(D);
+                 int off;
++                
+                 while( (off = uj_nextSlot(D)) >= 0 ) {
+                     uj_enterArray(D);
+                     if( off < MAX_JOINEUI_RANGES ) {
+                         s2e_joineuiFilter[2*off+0] = (uj_nextSlot(D), uj_int(D));
+                         s2e_joineuiFilter[2*off+1] = (uj_nextSlot(D), uj_int(D));
+                     } else {
+-                        LOG(MOD_S2E|ERROR, "Too many Join EUI filter ranges - max %d supported", MAX_JOINEUI_RANGES);
++                        LOG(MOD_S2E|ERROR, "Too many Joinx EUI filter ranges - max %d supported", MAX_JOINEUI_RANGES);
+                     }
+                     uj_exitArray(D);
+                 }
+@@ -1019,8 +1020,17 @@ static int handle_router_config (s2ctx_t* s2ctx, ujdec_t* D) {
+                 region = J_US915;
+                 region_s = "US915";
+                 // FALL THRU
++                
++                
+             }
+             case J_US915: { // common region name
++            
++                s2ctx->txpow = 26 * TXPOW_SCALE;
++                break;
++            }
++            case J_US470: { // common region name
++                region = J_US470;
++                region_s = "US470";
+                 s2ctx->txpow = 26 * TXPOW_SCALE;
+                 break;
+             }
+@@ -1791,6 +1801,8 @@ int s2e_onMsg (s2ctx_t* s2ctx, char* json, ujoff_t jsonlen) {
+         LOG(MOD_S2E|ERROR, "Parsing of JSON message failed - ignored");
+         return 1;   // return fail? would trigger a reconnect
+     }
++    s2ctx->region =1002;
++     //LOG(MOD_S2E|WARNING, "Region %d J_dmsg =%d' - j_dschd=%d j_dn=%d",s2ctx->region,(msgtype == J_dnmsg ), (msgtype == J_dnsched),(msgtype == J_dnframe));
+     if( s2ctx->region == 0 && (msgtype == J_dnmsg || msgtype == J_dnsched || msgtype == J_dnframe) ) {
+         // Might happen if messages are still queued
+         LOG(MOD_S2E|WARNING, "Received '%.*s' before 'router_config' - dropped", D.str.len, D.str.beg);
+diff --git a/src/s2e.h b/src/s2e.h
+index de4cc0d..a52c450 100644
+--- a/src/s2e.h
++++ b/src/s2e.h
+@@ -107,7 +107,7 @@ typedef struct s2bcn {
+     u1_t     state;     // track failure states
+     u1_t     ctrl;      // 0x0F => DR, 0xF0 = n frequencies
+     u1_t     layout[3]; // time_off, infodesc_off, bcn_len
+-    u4_t     freqs[8];  // 1 or up to 8 frequencies
++    u4_t     freqs[22];  // 1 or up to 8 frequencies
+ } s2bcn_t;
+ 
+ typedef struct s2ctx {
